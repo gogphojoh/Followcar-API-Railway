@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Talleres;
+use Cloudinary\Configuration\Configuration;
+use Cloudinary\Api\Upload\UploadApi;
 
 class TalleresController extends Controller
 {
@@ -28,15 +30,19 @@ class TalleresController extends Controller
             'Telefono' => 'required|string',
             'Email' => 'required|email',
             'Horario' => 'required|string', 
+            'Rescate' => 'nullable|string',
             'Logo' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:2048'
         ]);
-
+    
+        // Subir la imagen si se adjunta un archivo
         if ($request->hasFile('Logo')) {
-            $imageFile = $request->file('Logo');
-            $validated['Logo'] = base64_encode
-            (file_get_contents($imageFile));
+            Configuration::instance(getenv('CLOUDINARY_URL'));
+            $uploadedImage = (new UploadApi())->upload($request->file('Logo')->getRealPath());
+            $validated['Logo'] = $uploadedImage['secure_url'];
+        } else {
+            $validated['Logo'] = null;
         }
-        
+    
         $taller = Talleres::create($validated);
         return response()->json($taller, 201);
     }
@@ -63,15 +69,21 @@ class TalleresController extends Controller
             'Email' => 'required|email',
             'Horario' => 'required|string',
             'Rescate' => 'nullable|string',
-            'Logo' => 'nullable|file|mimes:jpeg,png,jpg,gif|max:2048',
+            'Logo' => 'nullable|file|mimes:jpeg,png,jpg,gif',
         ]);
-
-        if ($request->hasFile('Logo')) {
-            $imageFile = $request->file('Logo');
-            $validated['Logo'] = base64_encode(file_get_contents($imageFile));
-        }
-
+     
         $taller = Talleres::where('Nombre', $id)->first();
+     
+        // Si hay una nueva imagen, subirla a Cloudinary
+        if ($request->hasFile('Logo')) {
+            Configuration::instance(getenv('CLOUDINARY_URL'));
+            $uploadedImage = (new UploadApi())->upload($request->file('Logo')->getRealPath());
+            $validated['Logo'] = $uploadedImage['secure_url'];
+        }
+        else {
+            $validated['Logo'] = $taller->Logo;
+        }
+     
         $taller->update($validated);
         return response()->json($taller, 200);
     }
